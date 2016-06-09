@@ -128,7 +128,7 @@ function process_postviews() {
 ### Function: Calculate Post Views With WP_CACHE Enabled
 add_action('wp_enqueue_scripts', 'wp_postview_cache_count_enqueue');
 function wp_postview_cache_count_enqueue() {
-    global $user_ID, $post;
+    global $post;
 
     if( !defined( 'WP_CACHE' ) || !WP_CACHE )
         return;
@@ -139,26 +139,8 @@ function wp_postview_cache_count_enqueue() {
         return;
 
     if ( !wp_is_post_revision( $post ) && ( is_single() || is_page() ) ) {
-        $should_count = false;
-        switch( intval( $views_options['count'] ) ) {
-            case 0:
-                $should_count = true;
-                break;
-            case 1:
-                if ( empty( $_COOKIE[USER_COOKIE] ) && intval( $user_ID ) === 0) {
-                    $should_count = true;
-                }
-                break;
-            case 2:
-                if ( intval( $user_ID ) > 0 ) {
-                    $should_count = true;
-                }
-                break;
-        }
-        if ( $should_count ) {
-            wp_enqueue_script( 'wp-postviews-cache', plugins_url( 'postviews-cache.js', __FILE__ ), array( 'jquery' ), '1.68', true );
-            wp_localize_script( 'wp-postviews-cache', 'viewsCacheL10n', array( 'admin_ajax_url' => admin_url( 'admin-ajax.php' ), 'post_id' => intval( $post->ID ) ) );
-        }
+        wp_enqueue_script( 'wp-postviews-cache', plugins_url( 'postviews-cache.js', __FILE__ ), array( 'jquery' ), '1.68', true );
+        wp_localize_script( 'wp-postviews-cache', 'viewsCacheL10n', array( 'admin_ajax_url' => admin_url( 'admin-ajax.php' ), 'post_id' => intval( $post->ID ) ) );
     }
 }
 
@@ -750,6 +732,7 @@ function postviews_page_most_stats($content) {
 add_action( 'wp_ajax_postviews', 'increment_views' );
 add_action( 'wp_ajax_nopriv_postviews', 'increment_views' );
 function increment_views() {
+    global $user_ID;
     if( empty( $_GET['postviews_id'] ) )
         return;
 
@@ -762,12 +745,32 @@ function increment_views() {
         return;
 
     $post_id = intval( $_GET['postviews_id'] );
+
     if( $post_id > 0 ) {
-        $post_views = get_post_custom( $post_id );
-        $post_views = intval( $post_views['views'][0] );
-        update_post_meta( $post_id, 'views', ( $post_views + 1 ) );
-        do_action( 'postviews_increment_views_ajax', ( $post_views + 1 ) );
-        echo ( $post_views + 1 );
+        $should_count = false;
+
+        switch( intval( $views_options['count'] ) ) {
+            case 0:
+                $should_count = true;
+                break;
+            case 1:
+                if ( empty( $_COOKIE[USER_COOKIE] ) && intval( $user_ID ) === 0) {
+                    $should_count = true;
+                }
+                break;
+            case 2:
+                if ( intval( $user_ID ) > 0 ) {
+                    $should_count = true;
+                }
+                break;
+        }
+        if ( $should_count ) {
+            $post_views = get_post_custom($post_id);
+            $post_views = intval($post_views['views'][0]);
+            update_post_meta($post_id, 'views', ($post_views + 1));
+            do_action('postviews_increment_views_ajax', ($post_views + 1));
+            echo($post_views + 1);
+        }
         exit();
     }
 }
